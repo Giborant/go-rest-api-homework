@@ -9,8 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// Я запутался с GIT...
-// Task ...
 type Task struct {
 	ID           string   `json:"id"`
 	Description  string   `json:"description"`
@@ -51,7 +49,11 @@ func getTasks(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(resp)
+	_, err = res.Write(resp)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func postTasks(res http.ResponseWriter, req *http.Request) {
@@ -67,17 +69,22 @@ func postTasks(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+	_, ok := tasks[task.ID]
+	if ok {
+		http.Error(res, "", http.StatusBadRequest)
+		return
+	}
 	tasks[task.ID] = task
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 }
 
-func postTasksId(res http.ResponseWriter, req *http.Request) {
+func getTasksId(res http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
 	task, ok := tasks[id]
 	if !ok {
-		http.Error(res, "", http.StatusNoContent)
+		http.Error(res, "", http.StatusBadRequest)
 		return
 	}
 
@@ -89,34 +96,30 @@ func postTasksId(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(resp)
+	_, err = res.Write(resp)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func deleteTasksId(res http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 	_, ok := tasks[id]
 	if !ok {
-		http.Error(res, "", http.StatusNoContent)
+		http.Error(res, "", http.StatusBadRequest)
 		return
 	}
 	delete(tasks, id)
-	resp, err := json.Marshal(tasks)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(resp)
 }
 
 func main() {
 	r := chi.NewRouter()
-
 	r.Get("/tasks", getTasks)
 	r.Post("/tasks", postTasks)
-
-	r.Post("/tasks/{id}", postTasksId)
+	r.Get("/tasks/{id}", getTasksId)
 	r.Delete("/tasks/{id}", deleteTasksId)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
